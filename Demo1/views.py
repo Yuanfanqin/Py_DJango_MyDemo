@@ -6,6 +6,7 @@ from Demo1.models import Account, User, Skill, Color, Role
 from .forms import account_signupForm, account_signinForm, account_reset_passwordForm
 from random import Random
 import time
+from django.core.cache import cache
 import json
 
 
@@ -52,7 +53,7 @@ def signup(request):
                     expire=int(time.time())+24 * 60 * 60
                 )
                 # Django序列化方法serializers.serialize("json", QuerySet)无法序列化models对象
-                # 该方法可以序列化对象，但是包含依赖关系的models无法正确显示关联的对象，只能显示外键
+                # 下行方法可以序列化对象，但是包含依赖关系的models无法正确显示关联的对象，只能显示外键
                 # result = json.dumps(model_to_dict(a))
                 # 该方法在所有models下添加toJSON方法，判断当出现依赖关系时进一步调用toJSON
                 # 可以正确的序列化models对象，但是需要在每个model下添加该方法，待改进...
@@ -71,7 +72,29 @@ def signin(request):
         if form.is_valid():
             if not User.objects.filter(mobile=form.cleaned_data["mobile"]) or not Account.objects.filter(user__mobile=form.cleaned_data["mobile"],password=form.cleaned_data["password"]):
                 # 使用Session存储登录错误次数
-                return HttpResponse(status=404)
+                # 重启浏览器就可以刷新Session，未起到防止恶意登录的作用
+                # if request.session.get("wrong_time"):
+                #     if request.session.get("wrong_time") >= 3:
+                #         return HttpResponse(status=403)
+                #     else:
+                #         request.session["wrong_time"] += 1
+                #         return HttpResponse(status=404)
+                # else:
+                #     request.session["wrong_time"] = 1
+                #     request.session.set_expiry(300)
+                #     return HttpResponse(status=404)
+                # 使用本地缓存存储登录错误次数
+                # 安全性更高，也可以使用缓存数据库，或者Memcache等
+                if cache.get(form.cleaned_data["mobile"], -1) == -1:
+                    cache.set(form.cleaned_data["mobile"], 1, 500)
+                    return HttpResponse(status=404)
+                elif cache.get(form.cleaned_data["mobile"], -1) >= 3:
+                    return HttpResponse(status=403)
+                else:
+                    cache.set(form.cleaned_data["mobile"], cache.get(form.cleaned_data["mobile"], -1)+1)
+                    return HttpResponse(status=404)
+            elif cache.get(form.cleaned_data["mobile"], -1) >= 3:
+                return HttpResponse(status=403)
             else:
                 a = Account.objects.get(user__mobile=form.cleaned_data["mobile"],password=form.cleaned_data["password"])
                 result = a.toJSON()
