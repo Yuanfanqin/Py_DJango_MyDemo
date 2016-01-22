@@ -11,24 +11,24 @@ class Color(models.Model):
 
 class Skill(models.Model):
     categoryId = models.IntegerField()
-    name = models.CharField(default="",max_length=100)
+    name = models.CharField(default="", max_length=100)
     level = models.IntegerField(default=0)
-    color = models.ForeignKey(Color,null=True)
+    color = models.ForeignKey(Color, null=True)
     equip = models.BooleanField(default=0)
 
 
 class Role(models.Model):
-    name = models.CharField(default="",max_length=100)
-    color = models.ForeignKey(Color,null=True)
+    name = models.CharField(default="", max_length=100)
+    color = models.ForeignKey(Color, null=True)
 
 
 class User(models.Model):
-    mobile = models.CharField(max_length=30,default="")
-    name = models.CharField(max_length=100,default="")
-    photoUrl = models.CharField(max_length=500,default="")
+    mobile = models.CharField(max_length=30, default="")
+    name = models.CharField(max_length=100, default="")
+    photoUrl = models.CharField(max_length=500, default="")
     auth_status = models.IntegerField(default=0)
-    skills = models.ManyToManyField(Skill,null=True)
-    role = models.ForeignKey(Role,null=True)
+    skills = models.ManyToManyField(Skill)
+    role = models.ForeignKey(Role, null=True)
 
     def toJSON(self):
         fields = []
@@ -40,15 +40,15 @@ class User(models.Model):
                 d[attr] = json.loads(getattr(self, attr).toJSON())
             else:
                 d[attr] = getattr(self, attr)
-        print(d)
         return json.dumps(d)
 
 
 class Account(models.Model):
-    user = models.ForeignKey(User,null=True)
-    subscribes = models.CommaSeparatedIntegerField(max_length=200,default="")
-    friends = models.CommaSeparatedIntegerField(max_length=200,default="")
-    token = models.CharField(max_length=100,default="")
+    user = models.ForeignKey(User, null=True)
+    password = models.CharField(max_length=100, null=True)
+    subscribes = models.CommaSeparatedIntegerField(max_length=200, default="")
+    friends = models.CommaSeparatedIntegerField(max_length=200, default="")
+    token = models.CharField(max_length=100, default="")
     expire = models.BigIntegerField()
 
     def toJSON(self):
@@ -61,5 +61,4 @@ class Account(models.Model):
                 d[attr] = json.loads(getattr(self, attr).toJSON())
             else:
                 d[attr] = getattr(self, attr)
-        print(d)
         return json.dumps(d)

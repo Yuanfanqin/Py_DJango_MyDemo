@@ -3,42 +3,51 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.forms.models import model_to_dict
 from Demo1.models import Account, User, Skill, Color, Role
-from .forms import signupForm
+from .forms import account_signupForm, account_signinForm, account_reset_passwordForm
 from random import Random
-import time;
+import time
 import json
 
 
 # Create your views here.
-def index(request):
-    form=signupForm()
+def page_signup(request):
+    form = account_signupForm()
     return render(request, "Demo1/home.html", {'form': form});
 
 
-# def info(request):
-#     if request.method == "POST":
-#         form=regForm(request.POST)
-#         if form.is_valid():
-#             Person.objects.get_or_create(name=form.cleaned_data["name"],age=form.cleaned_data["age"])
-#     else:
-#         form=regForm()
-#     return render(request, "Demo1/home.html", {'form': form})
+def page_signin(request):
+    form = account_signinForm()
+    return render(request, "Demo1/login.html", {'form': form});
+
+
+def page_reset_password(request):
+    form = account_reset_passwordForm()
+    return render(request, "Demo1/reset.html", {'form': form});
 
 
 # 用户注册模块
 def signup(request):
     if request.method == "POST":
-        form = signupForm(request.POST)
+        form = account_signupForm(request.POST)
         if form.is_valid():
+            # 此处添加获取手机号对应的验证码的Code
+            verify = "123456"
             if User.objects.filter(mobile=form.cleaned_data["mobile"]):
                 return HttpResponse(status=409)
+            elif form.cleaned_data["verify"] != verify:
+                return HttpResponse(status=404)
+            elif form.cleaned_data["inviteCode"] != "abc123":
+                # 邀请码存储于inviteCode表，未查到对应的邀请码则返回403
+                return HttpResponse(status=403)
             else:
+                # 此处添加在inviteCode表中删除对应的邀请码的代码
                 u = User.objects.create(
                     name=form.cleaned_data["name"],
                     mobile=form.cleaned_data["mobile"]
                     )
                 a = Account.objects.create(
                     user=u,
+                    password=form.cleaned_data["password"],
                     token=random_str(12),
                     expire=int(time.time())+24 * 60 * 60
                 )
@@ -57,7 +66,20 @@ def signup(request):
 
 # 用户登录模块
 def signin(request):
-    return HttpResponse()
+    if request.method == "POST":
+        form = account_signinForm(request.POST)
+        if form.is_valid():
+            if not User.objects.filter(mobile=form.cleaned_data["mobile"]) or not Account.objects.filter(user__mobile=form.cleaned_data["mobile"],password=form.cleaned_data["password"]):
+                # 使用Session存储登录错误次数
+                return HttpResponse(status=404)
+            else:
+                a = Account.objects.get(user__mobile=form.cleaned_data["mobile"],password=form.cleaned_data["password"])
+                result = a.toJSON()
+                return HttpResponse(result, content_type='application/javascript')
+        else:
+             return HttpResponse(status=400)
+    else:
+        return HttpResponse()
 
 
 # 用户token登录模块
@@ -67,7 +89,27 @@ def user(request):
 
 # 用户修改密码模块
 def reset_password(request):
-    return HttpResponse()
+    if request.method == "POST":
+        form = account_reset_passwordForm(request.POST)
+        if form.is_valid():
+            if not User.objects.filter(mobile=form.cleaned_data["mobile"]):
+                return HttpResponse(status=400)
+            else:
+                # 此处添加调用API获取短信验证码的Code
+                verify = "123456"
+                if verify == form.cleaned_data["verify"]:
+                    a = Account.objects.get(user__mobile=form.cleaned_data["mobile"])
+                    a.password = form.cleaned_data["password"]
+                    a.save()
+                    result = a.toJSON()
+                    return HttpResponse(result, content_type='application/javascript')
+                else:
+                    return HttpResponse(status=404)
+        else:
+            return HttpResponse(status=400)
+    else:
+        return HttpResponse()
+
 
 
 # 随机生成有字母与数字构成的字符串
