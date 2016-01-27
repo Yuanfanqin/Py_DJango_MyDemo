@@ -7,6 +7,7 @@ from .forms import account_signupForm, account_signinForm, account_reset_passwor
 from random import Random
 import time
 from django.core.cache import cache
+from rest_framework.authtoken.models import Token
 import json
 
 
@@ -49,7 +50,7 @@ def signup(request):
                 a = Account.objects.create(
                     user=u,
                     password=form.cleaned_data["password"],
-                    token=random_str(12),
+                    token=Token.objects.create(user=u),
                     expire=int(time.time())+24 * 60 * 60
                 )
                 # Django序列化方法serializers.serialize("json", QuerySet)无法序列化models对象
